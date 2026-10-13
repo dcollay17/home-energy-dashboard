@@ -1,0 +1,99 @@
+{
+ "title": "Home Energy",
+ "subtitle": "<b>My house</b> · 6 kW solar · home battery · utility time-of-use rate",
+ "events": [
+  [
+   "2024-01",
+   "EV"
+  ],
+  [
+   "2025-01",
+   "Battery"
+  ]
+ ],
+ "car_since": "2024-01-01",
+ "car_label": "Car payment",
+ "car_payment": 500,
+ "solar_payment": 100,
+ "peak": {
+  "kw": 15.0,
+  "when": "Jan 1, 2026, 6:00 pm",
+  "p99": 10.0
+ },
+ "loads": [
+  [
+   "Always-on floor",
+   250,
+   24,
+   12,
+   "measured: overnight minimum"
+  ],
+  [
+   "Water heater (heat pump)",
+   450,
+   0,
+   12,
+   "measured:water"
+  ],
+  [
+   "Central AC",
+   3000,
+   4,
+   4,
+   "assumed"
+  ],
+  [
+   "Lighting, TV, computers",
+   300,
+   5,
+   12,
+   "assumed"
+  ],
+  [
+   "Range",
+   1800,
+   0.6,
+   12,
+   "assumed"
+  ],
+  [
+   "Dryer",
+   1000,
+   0.7,
+   12,
+   "assumed"
+  ]
+ ],
+ "nec": {
+  "sqft": 1500,
+  "fixed": [
+   [
+    "Range",
+    9600,
+    "nameplate"
+   ],
+   [
+    "Water heater",
+    4500,
+    "nameplate"
+   ],
+   [
+    "Dryer",
+    5000,
+    "nameplate"
+   ],
+   [
+    "EV charger",
+    11520,
+    "48 A × 240 V"
+   ],
+   [
+    "Dishwasher",
+    1200,
+    "typical"
+   ]
+  ],
+  "ac": 3600,
+  "heat": 600
+ }
+}

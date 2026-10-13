@@ -1,0 +1,690 @@
+<title>Home Energy</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* Layout: instrument panel. Header + source strip, headline readouts, findings, then a two-column chart grid; Tesla section below. Stacks to one column on phones. */
+:root {
+  --bg: #f2f4f3; --panel: #fcfcfb; --ink: #17201d; --muted: #59655f; --faint: #8a948f; --line: #dde3e0;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #6250d6;
+  --good: #1f7a4d; --bad: #b4462b; --chip: #e7ecea;
+  --font-display: "Archivo", "Helvetica Neue", Arial, sans-serif;
+  --font-body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --font-data: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111614; --panel: #1a1f1d; --ink: #e8edeb; --muted: #a3afa9; --faint: #6f7a75; --line: #2b3431;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #9085e9;
+  --good: #5cc28d; --bad: #e8866b; --chip: #242b28; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #111614; --panel: #1a1f1d; --ink: #e8edeb; --muted: #a3afa9; --faint: #6f7a75; --line: #2b3431;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #9085e9;
+  --good: #5cc28d; --bad: #e8866b; --chip: #242b28; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-inline: 20px; padding-block: 28px 56px; display: grid; gap: 22px; }
+header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 10px 20px; }
+h1 { font-family: var(--font-display); font-weight: 800; font-size: clamp(1.8rem, 4vw, 2.6rem); letter-spacing: -0.02em; margin: 0; line-height: 1.05; }
+.sub { color: var(--muted); margin: 6px 0 0; font-size: 0.92rem; }
+.sub b { color: var(--ink); font-weight: 600; }
+h2 { font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; margin: 0; text-wrap: balance; }
+h3.section { font-family: var(--font-display); font-weight: 800; font-size: 1.35rem; margin: 18px 0 0; letter-spacing: -0.01em; }
+.label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 600; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; min-width: 0; }
+
+.sources { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 8px; background: var(--chip); border-radius: 999px; padding: 5px 12px; font-size: 0.82rem; color: var(--muted); }
+.chip i { width: 8px; height: 8px; border-radius: 50%; background: var(--faint); }
+.chip.on i { background: var(--good); }
+.chip b { color: var(--ink); font-weight: 600; }
+
+.readouts { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.ro { background: var(--panel); padding: 14px 16px; display: grid; gap: 3px; align-content: start; }
+.ro .v { font-family: var(--font-data); font-size: 1.5rem; font-weight: 500; font-variant-numeric: tabular-nums; line-height: 1.2; }
+.ro .v small { font-size: 0.78rem; color: var(--muted); margin-left: 3px; }
+.ro .n { font-size: 0.8rem; color: var(--muted); }
+.delta { font-family: var(--font-data); font-size: 0.78rem; font-weight: 500; }
+.delta.up { color: var(--bad); } .delta.down { color: var(--good); }
+
+.findings { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 14px; }
+.finding { border-left: 3px solid var(--line); padding: 2px 0 2px 12px; display: grid; gap: 2px; }
+.finding .big { font-family: var(--font-data); font-size: 1.15rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+.finding p { margin: 0; font-size: 0.86rem; color: var(--muted); }
+.finding.warn { border-left-color: var(--s2); } .finding.good { border-left-color: var(--s3); } .finding.info { border-left-color: var(--s1); }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 520px), 1fr)); gap: 18px; }
+.wide { grid-column: 1 / -1; }
+.chart-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: start; gap: 8px 14px; margin-bottom: 10px; }
+.chart-head p { margin: 2px 0 0; font-size: 0.84rem; color: var(--muted); max-width: 62ch; }
+.canvas-box { position: relative; height: 300px; }
+.canvas-box.tall { height: 340px; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 0.8rem; color: var(--muted); margin-top: 10px; }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+.stats { display: flex; flex-wrap: wrap; gap: 6px 20px; font-size: 0.82rem; color: var(--muted); }
+.stats b { font-family: var(--font-data); color: var(--ink); font-weight: 500; }
+
+select, input[type=file] { font: inherit; font-size: 0.86rem; }
+select { padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); }
+select:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--s1); outline-offset: 2px; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 7px; overflow: hidden; }
+.seg button { font: inherit; font-size: 0.8rem; border: 0; background: transparent; color: var(--muted); padding: 5px 10px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--chip); color: var(--ink); font-weight: 600; }
+button.plain { font: inherit; font-size: 0.82rem; border: 1px solid var(--line); background: transparent; color: var(--muted); border-radius: 6px; padding: 5px 10px; cursor: pointer; }
+button.plain:hover { color: var(--ink); }
+
+.table-wrap { overflow-x: auto; }
+table.t { width: 100%; border-collapse: collapse; font-size: 0.86rem; }
+table.t th { text-align: left; font-weight: 600; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+table.t td { padding: 6px 8px; border-bottom: 1px solid var(--line); }
+table.t td.n, table.t th.n { text-align: right; font-family: var(--font-data); font-variant-numeric: tabular-nums; white-space: nowrap; }
+table.t tr.sum td { font-weight: 600; border-top: 2px solid var(--ink); border-bottom: 0; }
+table.t td.neg { color: var(--good); }
+table.t td .tag { font-size: 0.72rem; color: var(--faint); margin-left: 6px; }
+.explorer { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 260px); gap: 18px; }
+@media (max-width: 760px) { .explorer { grid-template-columns: minmax(0, 1fr); } }
+.side { display: grid; gap: 10px; align-content: start; font-size: 0.86rem; }
+.side div { display: flex; justify-content: space-between; gap: 10px; border-bottom: 1px solid var(--line); padding-bottom: 6px; }
+.side div span:last-child { font-family: var(--font-data); font-variant-numeric: tabular-nums; text-align: right; }
+
+.uploads { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 14px; }
+.upload { display: grid; gap: 6px; }
+.upload input { max-width: 100%; color: var(--muted); }
+.upload .status { font-family: var(--font-data); font-size: 0.78rem; color: var(--muted); }
+.upload .status.ok { color: var(--good); }
+.empty { display: grid; place-items: center; height: 300px; color: var(--muted); font-size: 0.9rem; text-align: center; padding: 24px; border: 1px dashed var(--line); border-radius: 8px; }
+.note { font-size: 0.82rem; color: var(--muted); margin: 12px 0 0; max-width: 75ch; }
+table.loads input { font: inherit; font-size: 0.84rem; background: transparent; color: var(--ink); border: 1px solid transparent; border-radius: 5px; padding: 3px 5px; }
+table.loads input:hover { border-color: var(--line); }
+table.loads input:focus-visible { outline: 2px solid var(--s1); outline-offset: 0; border-color: var(--line); }
+table.loads input.lv { width: 6.5em; text-align: right; font-family: var(--font-data); font-variant-numeric: tabular-nums; }
+table.loads input.ln { width: 100%; min-width: 12em; }
+table.loads td .tag { display: block; margin-left: 5px; }
+table.heat td.h { text-align: center; font-family: var(--font-data); font-size: 11px; padding: 4px 2px; min-width: 34px; }
+table.heat th { font-size: 11px; padding: 4px 2px; text-align: center; }
+table.heat td:first-child { white-space: nowrap; font-size: 12px; }
+table.loads tr.meas td { color: var(--muted); }
+footer { color: var(--muted); font-size: 0.82rem; max-width: 80ch; display: grid; gap: 6px; }
+footer code { font-family: var(--font-data); font-size: 0.78rem; }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div>
+      <h1 id="title">Home Energy</h1>
+      <p class="sub" id="subhead"></p>
+    </div>
+    <div class="sources" id="sources"></div>
+  </header>
+
+  <section class="readouts" id="readouts" aria-label="Last 12 bills"></section>
+
+  <section class="panel">
+    <div class="chart-head"><div><h2>What the bills say</h2><p>Pulled from all 33 Pacific Power bills, Jan 2024 to Sep 2026.</p></div></div>
+    <div class="findings" id="findings"></div>
+  </section>
+
+  <section class="grid">
+    <div class="panel wide">
+      <div class="chart-head">
+        <div><h2>Monthly bills</h2><p>Amount billed for each month of use. Hover a bar for the bill date and breakdown.</p></div>
+        <div class="seg" role="group" aria-label="Bill view">
+          <button type="button" data-view="total" aria-pressed="true">Total</button>
+          <button type="button" data-view="parts" aria-pressed="false">Breakdown</button>
+        </div>
+      </div>
+      <div class="canvas-box tall"><canvas id="cBills" aria-label="Monthly Pacific Power bills"></canvas></div>
+      <div class="legend" id="billsLegend"></div>
+    </div>
+
+    <div class="panel">
+      <div class="chart-head"><div><h2>Grid meter</h2><p>kWh pulled from the grid (up) and pushed to it (down), per Pacific Power's meter</p></div></div>
+      <div class="canvas-box"><canvas id="cMeter" aria-label="Grid import and export by month"></canvas></div>
+      <div class="legend"><span><i style="background:var(--s1)"></i>Pulled from grid</span><span><i style="background:var(--s2)"></i>Pushed to grid</span></div>
+    </div>
+
+    <div class="panel">
+      <div class="chart-head"><div><h2>Rates over time</h2><p>$/kWh on each bill. Net rate is everything except the basic charge, divided by billed kWh.</p></div></div>
+      <div class="canvas-box"><canvas id="cRates" aria-label="Electric rates over time"></canvas></div>
+      <div class="legend"><span><i style="background:var(--s1)"></i>Delivery</span><span><i style="background:var(--s2)"></i>Supply</span><span><i style="background:var(--s3)"></i>Net rate per billed kWh</span></div>
+    </div>
+
+    <div class="panel wide">
+      <div class="chart-head"><div><h2>Year over year</h2><p>Billed amount by month of use</p></div></div>
+      <div class="table-wrap"><table class="t" id="yoy"></table></div>
+    </div>
+
+    <div class="panel wide">
+      <div class="chart-head"><div><h2>Monthly cost of power and driving</h2><p>Average of the last 12 electric bills plus your fixed solar and car payments</p></div></div>
+      <div class="table-wrap"><table class="t" id="allin"></table></div>
+      <p class="note" id="allinNote"></p>
+    </div>
+
+    <div class="panel wide">
+      <div class="chart-head">
+        <div><h2>Bill explorer</h2><p>Every line item, exactly as billed</p></div>
+        <select id="billPick" aria-label="Choose a bill"></select>
+      </div>
+      <div class="explorer">
+        <div class="table-wrap"><table class="t" id="items"></table></div>
+        <div class="side" id="billSide"></div>
+      </div>
+    </div>
+  </section>
+
+  <h3 class="section">Solar, Powerwall and car</h3>
+  <p class="note" style="margin-top:-12px">From Tesla's official API: every 5 minutes since the Powerwall came online (Apr 22, 2025).</p>
+  <section class="readouts" id="teslaReadouts" aria-label="Solar, Powerwall and car, last 12 months"></section>
+
+  <section class="grid">
+    <div class="panel">
+      <div class="chart-head"><div><h2>Where the house got its power</h2><p>Share of house and car use by source, per month</p></div></div>
+      <div class="canvas-box"><canvas id="cSources" aria-label="Power sources by month"></canvas></div>
+      <div class="legend"><span><i style="background:var(--s4)"></i>Solar</span><span><i style="background:var(--s3)"></i>Powerwall</span><span><i style="background:var(--s1)"></i>Grid</span></div>
+    </div>
+    <div class="panel">
+      <div class="chart-head"><div><h2>Where the solar went</h2><p>Monthly solar production by destination, kWh</p></div></div>
+      <div class="canvas-box"><canvas id="cSolar" aria-label="Solar destinations by month"></canvas></div>
+      <div class="legend"><span><i style="background:var(--s4)"></i>Used in the house</span><span><i style="background:var(--s3)"></i>Charged the Powerwall</span><span><i style="background:var(--s2)"></i>Sent to the grid</span></div>
+    </div>
+    <div class="panel">
+      <div class="chart-head"><div><h2>Powerwall charging</h2><p>Where the battery's charge came from each month, kWh</p></div></div>
+      <div class="canvas-box"><canvas id="cBatt" aria-label="Powerwall charge source by month"></canvas></div>
+      <div class="legend"><span><i style="background:var(--s4)"></i>From solar</span><span><i style="background:var(--s1)"></i>From the grid</span></div>
+    </div>
+    <div class="panel">
+      <div class="chart-head">
+        <div><h2>Average day</h2><p>Typical power by hour, kW. House use is everything the home and car drew.</p></div>
+        <select id="profileMonth" aria-label="Month for average day"></select>
+      </div>
+      <div class="canvas-box"><canvas id="cProfile" aria-label="Average day by hour"></canvas></div>
+      <div class="legend"><span><i style="background:var(--s4)"></i>Solar made</span><span><i style="background:var(--ink)"></i>House use</span><span><i style="background:var(--s1)"></i>From grid</span><span><i style="background:var(--s3)"></i>From Powerwall</span><span><i style="background:var(--s5)"></i>Charging Powerwall</span></div>
+      <div class="stats" id="peakStats" style="margin-top:8px"></div>
+    </div>
+    <div class="panel wide">
+      <div class="chart-head"><div><h2>Every day</h2><p>Daily kWh since the Powerwall came online. Hover any day.</p></div></div>
+      <div class="canvas-box"><canvas id="cDays" aria-label="Daily energy"></canvas></div>
+      <div class="legend"><span><i style="background:var(--s4)"></i>Solar made</span><span><i style="background:var(--ink)"></i>House use</span><span><i style="background:var(--s1)"></i>From grid</span></div>
+    </div>
+    <div class="panel">
+      <div class="chart-head"><div><h2>House use, year over year</h2><p>Home use excluding car charging, kWh per month (Tesla app export). The hot tub arrived in April 2026.</p></div></div>
+      <div class="canvas-box"><canvas id="cHouseYoY" aria-label="House use 2025 vs 2026"></canvas></div>
+      <div class="legend"><span><i style="background:var(--s2)"></i>2025</span><span><i style="background:var(--s3)"></i>2026</span></div>
+      <div class="stats" id="tubStats"></div>
+    </div>
+    <div class="panel">
+      <div class="chart-head"><div><h2>Car charging at home</h2><p>kWh per month (Tesla app export). The car is set not to charge during on-peak 5–9 pm, so cost uses your off-peak rate.</p></div></div>
+      <div class="canvas-box"><canvas id="cCar" aria-label="Car charging by month"></canvas></div>
+      <div class="stats" id="carStats"></div>
+    </div>
+    <div class="panel">
+      <div class="chart-head"><div><h2>Tesla vs. Pacific Power</h2><p>Grid kWh pulled each month by each meter. Tesla uses calendar months and Pacific Power uses bill periods, so expect small gaps.</p></div></div>
+      <div class="canvas-box"><canvas id="cCompare" aria-label="Tesla vs Pacific Power grid import"></canvas></div>
+      <div class="legend"><span><i style="background:var(--s5)"></i>Tesla gateway</span><span><i style="background:var(--s1)"></i>Pacific Power meter</span></div>
+    </div>
+  </section>
+
+  <h3 class="section">Solar panels</h3>
+  <p class="note" style="margin-top:-12px" id="emaNote"></p>
+  <section class="readouts" id="emaReadouts" aria-label="Solar panels"></section>
+  <section class="grid">
+    <div class="panel">
+      <div class="chart-head"><div><h2>Every panel, ranked</h2><p>kWh per panel, Nov 2025 to date, from the APsystems microinverters. Gray bars are under 90% of the typical panel.</p></div></div>
+      <div class="canvas-box" style="height:460px"><canvas id="cPanels" aria-label="kWh per panel"></canvas></div>
+    </div>
+    <div class="panel">
+      <div class="chart-head"><div><h2>Panel health by month</h2><p>Each panel as a % of the median panel that month. Darker is weaker.</p></div></div>
+      <div class="table-wrap"><table class="t heat" id="panelHeat"></table></div>
+      <div class="stats" id="panelStats"></div>
+    </div>
+    <div class="panel wide">
+      <div class="chart-head"><div><h2>Solar made every day</h2><p>APsystems microinverters against the Tesla gateway's solar meter</p></div></div>
+      <div class="canvas-box"><canvas id="cEmaDaily" aria-label="Daily solar, APsystems vs Tesla"></canvas></div>
+      <div class="legend"><span><i style="background:var(--s4)"></i>APsystems</span><span><i style="background:var(--ink)"></i>Tesla</span></div>
+      <div class="stats" id="emaStats"></div>
+    </div>
+  </section>
+
+  <h3 class="section">Car</h3>
+  <p class="note" style="margin-top:-12px" id="carSnapNote"></p>
+  <section class="readouts" id="carReadouts" aria-label="Car snapshot"></section>
+  <section class="grid">
+    <div class="panel">
+      <div class="chart-head"><div><h2>Supercharging</h2><p>kWh and cost per month from Tesla charging history</p></div></div>
+      <div class="canvas-box"><canvas id="cSuper" aria-label="Supercharging by month"></canvas></div>
+      <div class="legend"><span><i style="background:var(--s5)"></i>kWh</span></div>
+      <div class="stats" id="superStats"></div>
+    </div>
+    <div class="panel">
+      <div class="chart-head"><div><h2>Recent sessions</h2><p>Latest Supercharger stops</p></div></div>
+      <div class="table-wrap"><table class="t" id="superTable"></table></div>
+    </div>
+  </section>
+
+  <h3 class="section">Water heater</h3>
+  <p class="note" style="margin-top:-12px" id="whNote"></p>
+  <section class="readouts" id="whReadouts" aria-label="Water heater"></section>
+  <section class="grid">
+    <div class="panel">
+      <div class="chart-head"><div><h2>Water heater kWh by month</h2><p>Measured by the Rheem EcoNet unit itself</p></div></div>
+      <div class="canvas-box"><canvas id="cWhMonth" aria-label="Water heater kWh by month"></canvas></div>
+      <div class="legend"><span><i style="background:var(--s3)"></i>kWh</span></div>
+      <div class="stats" id="whStats"></div>
+    </div>
+    <div class="panel">
+      <div class="chart-head"><div><h2>When it runs</h2><p>Average kWh by hour of day, last 12 months, hours as EcoNet reports them</p></div></div>
+      <div class="canvas-box"><canvas id="cWhHour" aria-label="Water heater average kWh by hour"></canvas></div>
+      <div class="stats" id="whHourStats"></div>
+    </div>
+  </section>
+
+  <h3 class="section">Load calculator</h3>
+  <section class="grid">
+    <div class="panel wide">
+      <div class="chart-head">
+        <div><h2>Where the house's energy goes</h2><p>Estimated kWh per appliance against what Tesla measured. Edit any number; changes stay in this browser. Gray rows are measured, the rest are estimates from your appliances and typical use.</p></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="plain" id="addLoad">Add appliance</button><button type="button" class="plain" id="resetLoads">Reset</button></div>
+      </div>
+      <div class="explorer">
+        <div class="table-wrap"><table class="t loads" id="loadTable"></table></div>
+        <div class="side" id="loadSide"></div>
+      </div>
+      <div class="canvas-box" style="height:320px;margin-top:14px"><canvas id="cLoads" aria-label="Estimated monthly kWh by appliance"></canvas></div>
+    </div>
+    <div class="panel wide">
+      <div class="chart-head"><div><h2>Panel capacity</h2><p>NEC 220.82 optional method for a dwelling, from nameplate ratings, against the real peak your Powerwall gateway measured. This is a planning estimate, not a substitute for an electrician's calculation.</p></div></div>
+      <div class="explorer">
+        <div class="table-wrap"><table class="t loads" id="necTable"></table></div>
+        <div class="side" id="necSide"></div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>Bill data comes from the 33 PDFs in <code>Downloads/Pacific Power Bills</code>, where the full line items and meter reads are also saved as CSV. Every bill's line items add up to its total.</span>
+    <span>Tesla data comes from the official Fleet API (5-minute history since Apr 22, 2025); car charging comes from the Tesla app export. To refresh, double-click <code>Run Tesla API Export</code> in Downloads, then ask Claude to update the dashboard. Car charging cost assumes overnight off-peak charging.</span>
+  </footer>
+</div>
+
+<script>
+(() => {
+const CFG = __CONFIG__;
+document.getElementById("title").textContent = CFG.title; document.getElementById("subhead").innerHTML = CFG.subtitle;
+const BILLS = __BILLS__;
+const ITEMS = __ITEMS__;
+
+const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const fmt = (n, d = 0) => (n ?? 0).toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d });
+const money = (n, d = 0) => (n < 0 ? "−$" : "$") + fmt(Math.abs(n), d);
+const store = { get(k) { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }, del(k) { try { localStorage.removeItem(k); } catch {} } };
+const mid = b => { const a = new Date(b.p0 + "T12:00"), z = new Date(b.p1 + "T12:00"); const m = new Date((a.getTime() + z.getTime()) / 2); return `${m.getFullYear()}-${String(m.getMonth() + 1).padStart(2, "0")}`; };
+const monthLbl = k => new Date(k + "-15T12:00").toLocaleDateString(undefined, { month: "short", year: "2-digit" });
+const longDate = d => new Date(d + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
+BILLS.forEach(b => { b.m = mid(b);
+  b.g = { basic: b.c.basic, energy: b.c.delivery + b.c.supply + b.c.onpeak, progtax: b.c.programs + b.c.tax, bluesky: b.c.bluesky, credits: b.c.offpeak + b.c.bpa + b.c.paperless }; });
+const yearColor = y => ({ 2023: "--s1", 2024: "--s1", 2025: "--s2", 2026: "--s3" })[y] || "--s1";
+
+// ---------- Charts ----------
+const charts = {};
+function chart(id, cfg) { charts[id]?.destroy(); charts[id] = new Chart(document.getElementById(id), cfg); }
+function opts({ stacked = false, yfmt, tip, title, min, max, months } = {}) {
+  const ink = css("--muted"), line = css("--line");
+  return { responsive: true, maintainAspectRatio: false, animation: false, interaction: { mode: "index", intersect: false },
+    plugins: { events: { months }, legend: { display: false }, tooltip: { callbacks: { label: tip, title } , backgroundColor: css("--ink"), titleColor: css("--panel"), bodyColor: css("--panel"), padding: 10 } },
+    scales: { x: { stacked, ticks: { color: ink, font: { family: css("--font-data"), size: 11 }, maxRotation: 0, autoSkip: true, autoSkipPadding: 8 }, grid: { display: false }, border: { color: line } },
+      y: { stacked, min, max, beginAtZero: true, ticks: { color: ink, font: { family: css("--font-data"), size: 11 }, callback: yfmt }, grid: { color: line }, border: { display: false } } } };
+}
+const bar = (label, data, color, extra = {}) => ({ label, data, backgroundColor: color, borderRadius: 4, borderSkipped: "start", borderColor: css("--panel"), borderWidth: { top: 0, bottom: 0, left: 1, right: 1 }, ...extra });
+
+// ---------- Sources ----------
+function renderSources() {
+  const t = teslaMonths();
+  document.getElementById("sources").innerHTML = [
+    ["on", "Pacific Power", `${BILLS.length} bills`], ["on", "Car", "live snapshot"], ["on", "Tesla API", `${API.daily.length} days`], ["on", "APsystems", `${EMA.panels.length} panels`], ["on", "Rheem EcoNet", `${WATER.daily.length} days`]
+  ].map(([c, a, b]) => `<span class="chip ${c}"><i></i>${a} <b>${b}</b></span>`).join("");
+}
+
+// ---------- Readouts ----------
+function renderReadouts() {
+  const L = BILLS.slice(-12), P = BILLS.slice(-24, -12);
+  const s = (arr, f) => arr.reduce((a, b) => a + f(b), 0);
+  const amt = s(L, b => b.amt), pamt = s(P, b => b.amt);
+  const imp = s(L, b => b.imp), pimp = s(P, b => b.imp), exp = s(L, b => b.exp), pexp = s(P, b => b.exp), net = s(L, b => b.net || 0);
+  const delta = (a, b, invert) => { const p = (a - b) / b * 100; const cls = (p > 0) !== !!invert ? "up" : "down"; return `<span class="delta ${cls}">${p > 0 ? "+" : "−"}${fmt(Math.abs(p))}% vs prior 12</span>`; };
+  const ro = [
+    ["Billed, last 12", money(amt), "", delta(amt, pamt), `${longDate(L[0].d)} to ${longDate(L.at(-1).d)}`],
+    ["Average bill", money(amt / 12), "/mo", "", `prior 12: ${money(pamt / 12)}/mo`],
+    ["Pulled from grid", fmt(imp), "kWh", delta(imp, pimp), `${fmt(imp / 365, 1)} kWh a day`],
+    ["Pushed to grid", fmt(exp), "kWh", delta(exp, pexp, true), "surplus solar and battery"],
+    ["Net billed", fmt(net), "kWh", "", `after on-peak surplus offsets`],
+    ["Cost per kWh pulled", money(amt / imp, 3), "", "", "all-in, including the basic charge"]
+  ];
+  document.getElementById("readouts").innerHTML = ro.map(([l, v, u, d, n]) => `<div class="ro"><span class="label">${l}</span><span class="v">${v}<small>${u}</small></span>${d}<span class="n">${n}</span></div>`).join("");
+}
+
+// ---------- Findings ----------
+function renderFindings() {
+  const s = (arr, f) => arr.reduce((a, b) => a + f(b), 0);
+  const blue = BILLS.filter(b => b.c.bluesky > 0), blueTot = s(blue, b => b.c.bluesky);
+  const tou = BILLS.filter(b => b.c.offpeak < 0), offTot = -s(tou, b => b.c.offpeak);
+  const bpaTot = -s(BILLS, b => b.c.bpa);
+  const peakBank = Math.max(...BILLS.map(b => b.bank || 0));
+  const byM = Object.fromEntries(BILLS.map(b => [b.m, b]));
+  const sumM = (y, ms, f) => ms.reduce((a, m) => a + (byM[`${y}-${m}`] ? f(byM[`${y}-${m}`]) : 0), 0);
+  const sum25 = sumM(2025, ["05","06","07","08"], b => b.imp), sum26 = sumM(2026, ["05","06","07","08"], b => b.imp);
+  const bill25 = sumM(2025, ["05","06","07","08"], b => b.amt), bill26 = sumM(2026, ["05","06","07","08"], b => b.amt);
+  const sumAmt24 = sumM(2024, ["04","05","06","07","08","09"], b => b.amt), sumAmt25 = sumM(2025, ["04","05","06","07","08","09"], b => b.amt), sumAmt26 = sumM(2026, ["04","05","06","07","08"], b => b.amt);
+  const win = (y1, y2) => sumM(y1, ["12"], b => b.amt) + sumM(y2, ["01","02"], b => b.amt);
+  const top = BILLS.reduce((a, b) => b.amt > a.amt ? b : a);
+  const last12 = BILLS.slice(-12), basic12 = s(last12, b => b.c.basic), amt12 = s(last12, b => b.amt);
+  const F = [
+    ["warn", `${money(sumAmt25)} vs ${money(sumAmt24)}`, `Apr to Sep bills, 2025 vs 2024. In 2024, summer surplus banked (peaking at ${fmt(peakBank)} kWh) and bills were just the basic charge. On time of use since Apr 2025, surplus no longer carries forward.`],
+    (() => { const sm = (y, k) => API.daily.filter(r => r[0] >= `${y}-05-01` && r[0] <= `${y}-08-31`).reduce((a, r) => a + (k === "use" ? r[FI.hs] + r[FI.hb] + r[FI.hg] : r[FI[k]]), 0);
+      const u5 = sm(2025, "use"), u6 = sm(2026, "use"), c5 = teslaMonths().filter(r => r[0] >= "2025-05" && r[0] <= "2025-08").reduce((a, r) => a + r[2], 0), c6 = teslaMonths().filter(r => r[0] >= "2026-05" && r[0] <= "2026-08").reduce((a, r) => a + r[2], 0);
+      return ["warn", `+${fmt((sum26 - sum25) / sum25 * 100)}% grid use`, `May to Aug 2026 pulled ${fmt(sum26)} kWh vs ${fmt(sum25)} in 2025. Total use rose ${fmt((u6 - u5) / u5 * 100)}% (${fmt(u6)} vs ${fmt(u5)} kWh), and it wasn't the car (${fmt(c6)} vs ${fmt(c5)} kWh). The Powerwall also started charging from the grid: ${fmt(sm(2026, "bcg"))} kWh vs ${fmt(sm(2025, "bcg"))}. Bills rose less: ${money(bill26)} vs ${money(bill25)}.`]; })(),
+    (() => { const L = apiMonths().slice(-12), s = k => L.reduce((a, r) => a + r[k], 0);
+      return ["info", `${fmt(s("bcg") / (s("bcs") + s("bcg")) * 100)}% of Powerwall charge from grid`, `Last 12 months the battery took ${fmt(s("bcg"))} kWh from the grid and ${fmt(s("bcs"))} from solar, while ${fmt(s("gxs"))} kWh of solar went to the grid. That's Time-Based Control: charge cheap, cover the evening peak. On-peak grid use on recent bills is under 25 kWh a month.`]; })(),
+    ["info", `${money(win(2024, 2025))} → ${money(win(2025, 2026))}`, `Dec to Feb bills, last winter vs the one before. Peak bill was ${money(top.amt, 2)} on ${longDate(top.d)}.`],
+    ["good", money(offTot, 2), `Off-peak energy credit earned across ${tou.length} time-of-use bills ($0.0379 per off-peak kWh).`],
+    ["info", money(blueTot, 2), `Paid for the Blue Sky renewable add-on on ${blue.length} bills, last on ${longDate(blue.at(-1).d)}. It doesn't appear after that.`],
+    ["info", `${money(basic12)} a year`, `Basic charge ($14/mo), ${fmt(basic12 / amt12 * 100)}% of the last 12 bills. It's owed even when solar covers everything. BPA credits have returned ${money(bpaTot, 2)} since Jan 2024.`]
+  ];
+  document.getElementById("findings").innerHTML = F.map(([c, big, p]) => `<div class="finding ${c}"><span class="big">${big}</span><p>${p}</p></div>`).join("");
+}
+
+// ---------- Bills ----------
+let billView = "total";
+const GROUPS = [["basic", "Basic charge", "--s1"], ["energy", "Energy (delivery + supply)", "--s2"], ["progtax", "Programs + city tax", "--s3"], ["bluesky", "Blue Sky add-on", "--s4"], ["credits", "Credits (off-peak, BPA, paperless)", "--s5"]];
+function renderBills() {
+  const L = BILLS.map(b => monthLbl(b.m));
+  const title = c => { const b = BILLS[c[0].dataIndex]; return `${monthLbl(b.m)} use · billed ${longDate(b.d)}`; };
+  let ds, legend;
+  if (billView === "total") {
+    ds = [bar("Bill", BILLS.map(b => b.amt), BILLS.map(b => css(yearColor(+b.m.slice(0, 4)))))];
+    legend = [["2023–24", "--s1"], ["2025", "--s2"], ["2026", "--s3"]].map(([l, c]) => `<span><i style="background:var(${c})"></i>${l}</span>`).join("");
+    chart("cBills", { type: "bar", data: { labels: L, datasets: ds }, options: opts({ months: BILLS.map(b => b.m), yfmt: v => "$" + v, title,
+      tip: c => { const b = BILLS[c.dataIndex]; return [`Bill: ${money(b.amt, 2)}`, `Pulled ${fmt(b.imp)} kWh · pushed ${fmt(b.exp)} kWh`, `Net billed: ${fmt(b.net || 0)} kWh`]; } }) });
+  } else {
+    ds = GROUPS.map(([k, l, c]) => bar(l, BILLS.map(b => +b.g[k].toFixed(2)), css(c)));
+    legend = GROUPS.map(([, l, c]) => `<span><i style="background:var(${c})"></i>${l}</span>`).join("");
+    chart("cBills", { type: "bar", data: { labels: L, datasets: ds }, options: opts({ months: BILLS.map(b => b.m), stacked: true, yfmt: v => "$" + v, title,
+      tip: c => c.raw ? `${c.dataset.label}: ${money(c.raw, 2)}` : null }) });
+  }
+  document.getElementById("billsLegend").innerHTML = legend;
+}
+document.querySelectorAll("[data-view]").forEach(b => b.addEventListener("click", () => {
+  billView = b.dataset.view; document.querySelectorAll("[data-view]").forEach(x => x.setAttribute("aria-pressed", x === b)); renderBills(); }));
+
+function renderMeter() {
+  chart("cMeter", { type: "bar", data: { labels: BILLS.map(b => monthLbl(b.m)), datasets: [
+    bar("Pulled from grid", BILLS.map(b => b.imp), css("--s1")), bar("Pushed to grid", BILLS.map(b => -b.exp), css("--s2"))
+  ] }, options: opts({ stacked: true, yfmt: v => fmt(Math.abs(v)), title: c => `${monthLbl(BILLS[c[0].dataIndex].m)} use`,
+    tip: c => `${c.dataset.label}: ${fmt(Math.abs(c.raw))} kWh`, months: BILLS.map(b => b.m) }) });
+}
+
+function renderRates() {
+  const pts = BILLS.filter(b => b.r.del);
+  const netRate = b => (b.net || 0) > 50 ? +((b.amt - b.c.basic) / b.net).toFixed(4) : null;
+  const line = (label, data, color, dash) => ({ label, data, borderColor: color, backgroundColor: color, borderWidth: 2, pointRadius: 2.5, pointHoverRadius: 5, stepped: false, spanGaps: true, borderDash: dash });
+  chart("cRates", { type: "line", data: { labels: pts.map(b => monthLbl(b.m)), datasets: [
+    line("Delivery", pts.map(b => b.r.del), css("--s1")), line("Supply", pts.map(b => b.r.sup), css("--s2")), line("Net rate", pts.map(netRate), css("--s3"))
+  ] }, options: opts({ min: 0, yfmt: v => "$" + v.toFixed(2), tip: c => c.raw == null ? null : `${c.dataset.label}: $${c.raw.toFixed(4)}/kWh` }) });
+}
+
+
+function renderYoY() {
+  const byM = Object.fromEntries(BILLS.map(b => [b.m, b.amt]));
+  const names = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"], Y = [2024, 2025, 2026];
+  const tot = { 2024: 0, 2025: 0, 2026: 0 }, ytd = { 2024: 0, 2025: 0, 2026: 0 };
+  let rows = `<tr><th>Month</th>${Y.map(y => `<th class="n">${y}</th>`).join("")}</tr>`;
+  names.forEach((n, i) => { const k = String(i + 1).padStart(2, "0"); const v = Y.map(y => byM[`${y}-${k}`]);
+    Y.forEach((y, j) => { tot[y] += v[j] ?? 0; if (v[2] != null) ytd[y] += v[j] ?? 0; });
+    rows += `<tr><td>${n}</td>${v.map(x => `<td class="n">${x == null ? "–" : money(x)}</td>`).join("")}</tr>`; });
+  rows += `<tr class="sum"><td>Jan–Aug</td>${Y.map(y => `<td class="n">${money(ytd[y])}</td>`).join("")}</tr>`;
+  document.getElementById("yoy").innerHTML = rows;
+}
+
+function renderExplorer() {
+  const sel = document.getElementById("billPick");
+  if (!sel.options.length) { sel.innerHTML = [...BILLS].reverse().map(b => `<option value="${b.d}">${longDate(b.d)} · ${money(b.amt, 2)}</option>`).join(""); sel.addEventListener("change", renderExplorer); }
+  const b = BILLS.find(x => x.d === sel.value), it = ITEMS[b.d];
+  let rows = `<tr><th>Line item</th><th class="n">Units</th><th class="n">Rate</th><th class="n">Charge</th></tr>`;
+  it.forEach(([name, days, units, unit, rate, charge]) => {
+    const u = units != null ? `${fmt(units)} ${unit.replace("kwh", " kWh").replace("off kWh", "off-peak kWh").replace("on kWh", "on-peak kWh").trim()}` : "";
+    rows += `<tr><td>${name}${days ? `<span class="tag">${days} days</span>` : ""}</td><td class="n">${u}</td><td class="n">${rate != null ? (Math.abs(rate) < 0.1 && unit ? (rate < 0 ? "−$" : "$") + Math.abs(rate).toFixed(5) : rate < 1 && !unit ? fmt(rate * 100, 1) + "%" : rate) : ""}</td><td class="n ${charge < 0 ? "neg" : ""}">${money(charge, 2)}</td></tr>`; });
+  rows += `<tr class="sum"><td>Total</td><td></td><td></td><td class="n">${money(b.amt, 2)}</td></tr>`;
+  document.getElementById("items").innerHTML = rows;
+  const side = [["Service", `${longDate(b.p0)} to ${longDate(b.p1)}`], ["Days", b.days], ["Pulled from grid", `${fmt(b.imp)} kWh`], ["Pushed to grid", `${fmt(b.exp)} kWh`],
+    ...(b.onImp || b.onExp ? [["On-peak net", `${fmt(b.onImp - b.onExp)} kWh`]] : []), ["Net billed", `${fmt(b.net || 0)} kWh`],
+    ...(b.bank ? [["Banked for later", `${fmt(b.bank)} kWh`]] : []), ["Avg temp", `${b.temp}°F`], ["Cost per day", money(b.amt / b.days, 2)], ["Plan", b.plan || "–"]];
+  document.getElementById("billSide").innerHTML = side.map(([a, v]) => `<div><span>${a}</span><span>${v}</span></div>`).join("");
+}
+
+// ---------- Tesla ----------
+// Official API, daily kWh. fields: hs hb hg = house from solar/battery/grid; sol = solar made; gi = grid import;
+// gxs gxb = export from solar/battery; bcs bcg = battery charged from solar/grid; bd = battery discharged
+const API = __API__;
+// Tesla app monthly export (for car charging, which the API energy history doesn't separate)
+// [month, house kWh, car kWh, from Powerwall, solar (app rounds to 10), from grid, to grid]
+const TESLA_BASE = __TESLA__;
+const EVENTS = CFG.events;
+const FI = Object.fromEntries(API.fields.map((k, i) => [k, i + 1]));
+const thisMonth = new Date().toISOString().slice(0, 7);
+function apiMonths() {
+  const M = {};
+  for (const r of API.daily) { const m = r[0].slice(0, 7); const a = (M[m] ||= Object.fromEntries(API.fields.map(k => [k, 0]))); API.fields.forEach(k => a[k] += r[FI[k]]); }
+  return Object.keys(M).sort().filter(m => m < thisMonth).map(m => ({ m, ...M[m], use: M[m].hs + M[m].hb + M[m].hg }));
+}
+function teslaMonths() { return TESLA_BASE.filter(r => r[1] + r[2] + r[5] > 5); }
+function offPeakRate() {
+  const it = ITEMS[BILLS.at(-1).d], r = n => (it.find(x => x[0] === n && x[4] != null) || [])[4] || 0;
+  return (r("Delivery Charge") + r("Supply Energy Charge") + r("Off Peak Energy Credit") + r("System Benefits Charge") + r("Energy Trust/efficiency Charge") + r("B P A Columbia River Benefits")) * 1.05;
+}
+const setStatus = () => {};
+function renderTesla() {
+  const A = apiMonths(), last = A.slice(-12), s = k => last.reduce((a, r) => a + r[k], 0);
+  const use = s("use"), selfP = (s("hs") + s("hb")) / use * 100, bc = s("bcs") + s("bcg");
+  const car = teslaMonths().filter(r => r[0] < thisMonth).slice(-12).reduce((a, r) => a + r[2], 0), rate = offPeakRate();
+  const span = `${monthLbl(last[0].m)} to ${monthLbl(last.at(-1).m)}`;
+  const ro = [["Solar made", fmt(s("sol")), "kWh", span], ["House + car used", fmt(use), "kWh", `${fmt(use / 365, 1)} kWh a day`],
+    ["Self-powered", fmt(selfP), "%", "of use from solar + Powerwall"], ["Powerwall supplied", fmt(s("hb")), "kWh", `${fmt(s("hb") / 365, 1)} kWh a day to the house`],
+    ["Powerwall charged from grid", fmt(s("bcg") / bc * 100), "%", `${fmt(s("bcg"))} of ${fmt(bc)} kWh`], ["Car charging cost", money(car * rate), "/yr", `${fmt(car)} kWh, est. at $${rate.toFixed(3)}/kWh`]];
+  document.getElementById("teslaReadouts").innerHTML = ro.map(([l, v, u, n]) => `<div class="ro"><span class="label">${l}</span><span class="v">${v}<small>${u}</small></span><span class="n">${n}</span></div>`).join("");
+  const L = A.map(r => monthLbl(r.m)), months = A.map(r => r.m);
+  const pct = (r, k) => r.use ? r[k] / r.use * 100 : 0;
+  chart("cSources", { type: "bar", data: { labels: L, datasets: [bar("Solar", A.map(r => pct(r, "hs")), css("--s4")), bar("Powerwall", A.map(r => pct(r, "hb")), css("--s3")), bar("Grid", A.map(r => pct(r, "hg")), css("--s1"))] },
+    options: opts({ stacked: true, max: 100, yfmt: v => v + "%", tip: c => `${c.dataset.label}: ${fmt(c.raw)}%` }) });
+  chart("cSolar", { type: "bar", data: { labels: L, datasets: [bar("Used in the house", A.map(r => r.hs), css("--s4")), bar("Charged the Powerwall", A.map(r => r.bcs), css("--s3")), bar("Sent to the grid", A.map(r => r.gxs), css("--s2"))] },
+    options: opts({ stacked: true, yfmt: v => fmt(v), tip: c => `${c.dataset.label}: ${fmt(c.raw)} kWh` }) });
+  chart("cBatt", { type: "bar", data: { labels: L, datasets: [bar("From solar", A.map(r => r.bcs), css("--s4")), bar("From the grid", A.map(r => r.bcg), css("--s1"))] },
+    options: opts({ stacked: true, yfmt: v => fmt(v), tip: c => `${c.dataset.label}: ${fmt(c.raw)} kWh` }) });
+  const D = API.daily, dl = D.map(r => new Date(r[0] + "T12:00").toLocaleDateString(undefined, { month: "short", day: "numeric", year: "2-digit" }));
+  const ln = (label, data, color, w = 1.5) => ({ label, data, borderColor: color, backgroundColor: color, borderWidth: w, pointRadius: 0, pointHoverRadius: 3, tension: 0.2 });
+  const o = opts({ yfmt: v => fmt(v), tip: c => `${c.dataset.label}: ${fmt(c.raw, 1)} kWh` }); o.scales.x.ticks.maxTicksLimit = 12;
+  chart("cDays", { type: "line", data: { labels: dl, datasets: [ln("Solar made", D.map(r => r[FI.sol]), css("--s4")), ln("House use", D.map(r => +(r[FI.hs] + r[FI.hb] + r[FI.hg]).toFixed(1)), css("--ink")), ln("From grid", D.map(r => r[FI.hg]), css("--s1"))] }, options: o });
+  { const T = teslaMonths(), by = Object.fromEntries(T.map(r => [r[0], r[1]])), ms = ["06", "07", "08", "09"], mn = ["Jun", "Jul", "Aug", "Sep"];
+    const a = ms.map(m => by[`2025-${m}`] ?? null), b = ms.map(m => by[`2026-${m}`] ?? null);
+    chart("cHouseYoY", { type: "bar", data: { labels: mn, datasets: [bar("2025", a, css("--s2")), bar("2026", b, css("--s3"))] },
+      options: opts({ yfmt: v => fmt(v), tip: c => `${c.dataset.label}: ${fmt(c.raw)} kWh` }) });
+    const da = a.reduce((x, y) => x + y, 0), db = b.reduce((x, y) => x + y, 0), per = (db - da) / 4;
+    document.getElementById("tubStats").innerHTML = `<span>Jun to Sep <b>+${fmt(per)} kWh/mo</b> vs 2025 (+${fmt((db - da) / da * 100)}%)</span><span>About <b>${money(per * rate)}/mo</b> at your off-peak rate</span><span>Likely mostly the hot tub; this can't separate it from other new loads</span>`; }
+  const T = teslaMonths().filter(r => r[0] < thisMonth);
+  chart("cCar", { type: "bar", data: { labels: T.map(r => monthLbl(r[0])), datasets: [bar("Car charging", T.map(r => r[2]), css("--s5"))] },
+    options: opts({ yfmt: v => fmt(v), tip: c => [`${fmt(c.raw)} kWh`, `about ${money(c.raw * rate)} at off-peak rate`] }) });
+  document.getElementById("carStats").innerHTML = `<span>Last 12 months <b>${fmt(car)} kWh</b></span><span>Est. cost <b>${money(car * rate)}/yr</b> (${money(car * rate / 12)}/mo)</span><span>Share of total use <b>${fmt(car / use * 100)}%</b></span>`;
+  const ppByM = Object.fromEntries(BILLS.map(b => [b.m, b.imp]));
+  chart("cCompare", { type: "bar", data: { labels: L, datasets: [bar("Tesla gateway", A.map(r => Math.round(r.gi)), css("--s5")), bar("Pacific Power meter", A.map(r => ppByM[r.m] ?? null), css("--s1"))] },
+    options: opts({ yfmt: v => fmt(v), tip: c => c.raw == null ? null : `${c.dataset.label}: ${fmt(c.raw)} kWh` }) });
+  const sel = document.getElementById("profileMonth"), pm = Object.keys(API.profile).sort().filter(m => m < thisMonth);
+  if (!sel.options.length) { sel.innerHTML = pm.map(m => `<option value="${m}">${new Date(m + "-15T12:00").toLocaleDateString(undefined, { month: "long", year: "numeric" })}</option>`).join(""); sel.value = pm.at(-1); sel.addEventListener("change", renderProfile); }
+  renderProfile(); renderAllIn();
+}
+const peakShade = { id: "peak", beforeDatasetsDraw(ch, a, o) {
+  if (!o?.on) return; const { ctx, chartArea: ca, scales: { x } } = ch, x0 = x.getPixelForValue(17), x1 = x.getPixelForValue(21);
+  ctx.save(); ctx.fillStyle = css("--s2") + "1f"; ctx.fillRect(x0, ca.top, x1 - x0, ca.bottom - ca.top);
+  ctx.fillStyle = css("--muted"); ctx.font = `11px ${css("--font-body")}`; ctx.fillText("On-peak 5–9 pm", x0 + 4, ca.top + 12); ctx.restore(); } };
+function renderProfile() {
+  const p = API.profile[document.getElementById("profileMonth").value], H = Array.from({ length: 24 }, (_, h) => `${(h % 12) || 12}${h < 12 ? "a" : "p"}`);
+  // profile row: [house from solar, from battery, from grid, solar made, exported, battery charging] avg kW
+  const ln = (label, f, color, fill, dash) => ({ label, data: p.map(f), borderColor: color, backgroundColor: color + "2e", fill, borderDash: dash, tension: 0.35, pointRadius: 0, pointHoverRadius: 4, borderWidth: 2 });
+  chart("cProfile", { type: "line", data: { labels: H, datasets: [ln("Solar made", r => r[3], css("--s4"), "origin"), ln("House use", r => +(r[0] + r[1] + r[2]).toFixed(2), css("--ink"), false), ln("From grid", r => r[2], css("--s1"), false, [4, 3]), ln("From Powerwall", r => r[1], css("--s3"), false), ln("Charging Powerwall", r => r[5], css("--s5"), false, [2, 3])] },
+    options: (() => { const o = opts({ yfmt: v => fmt(v, 1), tip: c => `${c.dataset.label}: ${fmt(c.raw, 2)} kW` }); o.plugins.peak = { on: true }; return o; })(), plugins: [peakShade] });
+  const sum = (a, b) => p.slice(a, b).reduce((s, r) => s + r[2], 0), all = sum(0, 24), pk = sum(17, 21), late = sum(21, 24);
+  const h = p.slice(17, 21).reduce((s, r) => s + r[0] + r[1] + r[2], 0);
+  document.getElementById("peakStats").innerHTML = `<span>Grid during 5–9 pm <b>${fmt(pk, 1)} kWh/day</b> (${fmt(pk / all * 100)}% of grid use)</span><span>House use 5–9 pm <b>${fmt(h, 1)} kWh/day</b>, ${fmt((h - pk) / h * 100)}% covered by solar + Powerwall</span><span>9 pm to midnight <b>${fmt(late, 1)} kWh/day</b> from grid, when the car is allowed to charge</span>`;
+}
+// Draw dashed event markers (car, Powerwall, time of use) on month-labeled charts
+const eventLines = { id: "events", afterDatasetsDraw(ch, a, o) {
+  if (!o?.months) return; const { ctx, chartArea: ca, scales: { x } } = ch;
+  ctx.save(); ctx.strokeStyle = css("--muted"); ctx.fillStyle = css("--muted"); ctx.setLineDash([3, 3]); ctx.lineWidth = 1; ctx.font = `11px ${css("--font-body")}`;
+  EVENTS.forEach(([m, label]) => { const i = o.months.indexOf(m); if (i < 0) return; const px = x.getPixelForValue(i) - (x.getPixelForValue(1) - x.getPixelForValue(0)) / 2;
+    ctx.beginPath(); ctx.moveTo(px, ca.top); ctx.lineTo(px, ca.bottom); ctx.stroke(); ctx.fillText(label, px + 4, ca.top + 11 + (label === "Time of use" ? 14 : 0)); });
+  ctx.restore(); } };
+// ---------- Solar panels (APsystems EMA) ----------
+const EMA = __EMA__;
+function renderEma() {
+  const P = EMA.panels, M = EMA.months, D = EMA.daily.filter(r => r[0] < new Date().toISOString().slice(0, 10));
+  const tot = p => p.months.reduce((a, b) => a + b, 0), med = a => { const s = [...a].sort((x, y) => x - y), n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; };
+  const totals = P.map(tot), m0 = med(totals), cut = new Date(); cut.setFullYear(cut.getFullYear() - 1); const c0 = cut.toISOString().slice(0, 10);
+  const k12 = D.filter(r => r[0] >= c0).reduce((a, r) => a + r[1], 0), best = D.reduce((a, r) => r[1] > a[1] ? r : a, ["", 0]);
+  const weakest = P.map((p, i) => [p, totals[i] / m0]).sort((a, b) => a[1] - b[1])[0];
+  const T = Object.fromEntries(API.daily.map(r => [r[0], r[4]])), common = D.filter(r => T[r[0]] != null), sE = common.reduce((a, r) => a + r[1], 0), sT = common.reduce((a, r) => a + T[r[0]], 0);
+  const det = EMA.details, nInv = new Set(P.map(p => p.inv)).size;
+  document.getElementById("emaNote").textContent = `${det.capacity} kW system, ${P.length} panels on ${nInv} APsystems microinverters, online since ${longDate(det.create_date)}. Pulled from the EMA OpenAPI (free tier, 1,000 calls a month; a refresh uses about 15).`;
+  const ro = [["Lifetime", fmt(+EMA.summary.lifetime), "kWh", `since ${det.create_date.slice(0, 4)}`], ["Last 12 months", fmt(k12), "kWh", `${fmt(k12 / +det.capacity)} kWh per kW installed`],
+    ["Best day", fmt(best[1], 1), "kWh", longDate(best[0])], ["Panels", P.length, "", `${nInv} microinverters, ${fmt(P.filter((p, i) => totals[i] / m0 >= 0.9).length)} at 90%+ of typical`],
+    ["Weakest panel", fmt(weakest[1] * 100), "%", weakest[0].name], ["Matches Tesla", fmt(sE / sT * 100, 1), "%", `${common.length} days compared`]];
+  document.getElementById("emaReadouts").innerHTML = ro.map(([l, v, u, n]) => `<div class="ro"><span class="label">${l}</span><span class="v">${v}<small>${u}</small></span><span class="n">${n}</span></div>`).join("");
+  const order = P.map((p, i) => [p.name, totals[i]]).sort((a, b) => b[1] - a[1]);
+  chart("cPanels", { type: "bar", data: { labels: order.map(r => r[0]), datasets: [bar("kWh", order.map(r => +r[1].toFixed(1)), order.map(r => r[1] / m0 < 0.9 ? css("--muted") : css("--s4")))] },
+    options: (() => { const o = opts({ yfmt: v => fmt(v), tip: c => `${fmt(c.raw)} kWh · ${fmt(c.raw / m0 * 100)}% of typical` }); o.indexAxis = "y"; o.scales.x.grid = { color: css("--line") }; o.scales.y.grid = { display: false }; o.scales.x.ticks.callback = v => fmt(v); o.scales.y.ticks.callback = function (v) { return this.getLabelForValue(v); }; return o; })() });
+  const meds = M.map((_, i) => med(P.map(p => p.months[i]))), ink = css("--s2");
+  const rows = P.map((p, i) => [p, totals[i]]).sort((a, b) => a[1] - b[1]);
+  document.getElementById("panelHeat").innerHTML = `<tr><th></th>${M.map(m => `<th>${monthLbl(m).split(" ")[0]}</th>`).join("")}</tr>` + rows.map(([p]) => `<tr><td>${p.name}</td>${p.months.map((v, i) => { const r = meds[i] ? v / meds[i] : 1, a = Math.max(0, Math.min(1, (1 - r) / 0.6)); return `<td class="h" style="background:${ink}${Math.round(a * 200).toString(16).padStart(2, "0")}" title="${fmt(v, 1)} kWh">${fmt(r * 100)}</td>`; }).join("")}</tr>`).join("");
+  const weak = rows.filter(([p, t]) => t / m0 < 0.9).map(([p]) => p.inv), sameInv = weak.length && weak.every(u => u === weak[0]);
+  document.getElementById("panelStats").innerHTML = sameInv ? `<span>The weak panels all sit on inverter <b>…${weak[0].slice(-4)}</b>. They run near 100% from May to July and drop when the sun is low, which points to <b>seasonal shading</b>, not a failing panel or inverter.</span>` : `<span><b>${weak.length}</b> panels under 90% of typical</span>`;
+  const days = D.map(r => r[0]);
+  chart("cEmaDaily", { type: "line", data: { labels: days.map(d => d.slice(5)), datasets: [
+    { label: "APsystems", data: D.map(r => r[1]), borderColor: css("--s4"), backgroundColor: css("--s4") + "2e", fill: "origin", pointRadius: 0, borderWidth: 1.5, tension: 0.2 },
+    { label: "Tesla", data: days.map(d => T[d] ?? null), borderColor: css("--ink"), pointRadius: 0, borderWidth: 1, borderDash: [3, 3], spanGaps: false }] },
+    options: (() => { const o = opts({ yfmt: v => fmt(v), tip: c => `${c.dataset.label}: ${fmt(c.raw, 1)} kWh`, title: c => longDate(days[c[0].dataIndex]) }); o.scales.x.ticks.maxTicksLimit = 12; return o; })() });
+  document.getElementById("emaStats").innerHTML = `<span>Overlap days: APsystems <b>${fmt(sE)} kWh</b>, Tesla <b>${fmt(sT)} kWh</b></span><span>APsystems history starts <b>${longDate(D[0][0])}</b>, before the Powerwall</span>`;
+}
+
+// ---------- Car ----------
+const CAR = __CAR__;
+function renderCar() {
+  const rate = offPeakRate(), S = CAR.sessions, kwh = S.reduce((a, s) => a + s[2], 0), cost = S.reduce((a, s) => a + s[3], 0), sc = cost / kwh;
+  const psi = CAR.tpms.map(b => b == null ? "–" : fmt(b * 14.5038)).join(" / ");
+  const T = teslaMonths().filter(r => r[0] < thisMonth).slice(-12), home = T.reduce((a, r) => a + r[2], 0);
+  const t = CAR.snap_time; document.getElementById("carSnapNote").textContent = `Snapshot from the car on ${t.slice(5, 7)}/${t.slice(8, 10)} at ${t.slice(11, 13)}:${t.slice(13, 15)}. Model Y ${CAR.trim?.toUpperCase() || ""}, software ${CAR.version}. Rerun the car export to refresh; repeat snapshots will add miles driven and efficiency.`;
+  const ro = [["Odometer", fmt(CAR.odometer), "mi", "as of snapshot"], ["Battery", fmt(CAR.battery), "%", `${fmt(CAR.range)} mi range, limit ${CAR.limit}%`],
+    ["Home charging", `${CAR.max_amps}`, "A", "scheduled start, off-peak only"], ["Tire pressure", psi, "psi", "FL / FR / RL / RR"],
+    ["Supercharger avg", `$${sc.toFixed(3)}`, "/kWh", `${S.length} sessions, ${money(cost)} total`], ["Home avg", `$${rate.toFixed(3)}`, "/kWh", `${fmt(sc / rate, 1)}x cheaper than Supercharging`]];
+  document.getElementById("carReadouts").innerHTML = ro.map(([l, v, u, n]) => `<div class="ro"><span class="label">${l}</span><span class="v">${v}<small>${u}</small></span><span class="n">${n}</span></div>`).join("");
+  const M = {}; S.forEach(s => { const m = s[0].slice(0, 7); (M[m] ||= [0, 0]); M[m][0] += s[2]; M[m][1] += s[3]; });
+  const start = CFG.car_since.slice(0, 7), end = thisMonth, ms = []; for (let d = new Date(start + "-15"); d.toISOString().slice(0, 7) < end; d.setMonth(d.getMonth() + 1)) ms.push(d.toISOString().slice(0, 7));
+  chart("cSuper", { type: "bar", data: { labels: ms.map(monthLbl), datasets: [bar("kWh", ms.map(m => +(M[m]?.[0] || 0).toFixed(1)), css("--s5"))] },
+    options: opts({ yfmt: v => fmt(v), tip: c => [`${fmt(c.raw, 1)} kWh`, `${money(M[ms[c.dataIndex]]?.[1] || 0, 2)}`] }) });
+  document.getElementById("superStats").innerHTML = `<span>Since ${monthLbl(CFG.car_since.slice(0, 7))} <b>${fmt(kwh)} kWh</b>, <b>${money(cost, 2)}</b></span><span>Home charging last 12 mo <b>${fmt(home)} kWh</b> ≈ <b>${money(home * rate)}</b>; at Supercharger rates it would be <b>${money(home * sc)}</b></span>`;
+  document.getElementById("superTable").innerHTML = `<tr><th>Date</th><th>Location</th><th class="n">kWh</th><th class="n">Cost</th></tr>` +
+    S.slice(0, 10).map(s => `<tr><td>${longDate(s[0].slice(0, 10))}</td><td>${s[1]}</td><td class="n">${fmt(s[2], 1)}</td><td class="n">${money(s[3], 2)}</td></tr>`).join("");
+}
+
+// ---------- Water heater ----------
+const WATER = __WATER__;
+function renderWater() {
+  const rate = offPeakRate(), W = WATER, s = W.snapshot, D = W.daily;
+  const modeName = { ENERGY_SAVING: "Energy Saver", HEAT_PUMP_ONLY: "Heat pump only", HIGH_DEMAND: "High demand", ELECTRIC_MODE: "Electric", VACATION: "Vacation", OFF: "Off" }[String(s.mode).split(".").pop()] || s.mode;
+  const t = s.taken; document.getElementById("whNote").textContent = `${s.name}, read from Rheem EcoNet on ${t.slice(5, 7)}/${t.slice(8, 10)}. Read-only: the dashboard never changes settings. Data starts May 24, 2025 (the install-day reading of 494 kWh is excluded as a counter reset).`;
+  const M = {}; D.forEach(([d, k]) => { const m = d.slice(0, 7); (M[m] ||= [0, 0]); M[m][0] += k; M[m][1]++; });
+  const ms = Object.keys(M).sort(), full = ms.filter(m => m < thisMonth);
+  const perDay = W.kwh12 / W.days12, peakSh = W.profile.slice(17, 21).reduce((a, b) => a + b, 0) / W.profile.reduce((a, b) => a + b, 0);
+  const winter = ["2026-01", "2026-02"].reduce((a, m) => a + (M[m]?.[0] || 0), 0) / 2, summer = ["2026-07", "2026-08"].reduce((a, m) => a + (M[m]?.[0] || 0), 0) / 2;
+  const ro = [["Mode", modeName, "", "set in the Rheem app"], ["Set point", s.set_point, "°F", `hot water ${s.hot_water_pct}% available`],
+    ["Health", s.tank_health, "%", `tank ${s.tank_health}%, compressor ${s.compressor_health}%`], ["Last 12 months", fmt(W.kwh12), "kWh", `${fmt(perDay, 1)} kWh a day`],
+    ["Cost", money(W.kwh12 * rate / 12, 2), "/mo", `≈ ${money(W.kwh12 * rate)} a year at off-peak rate`], ["Winter vs summer", fmt(winter / Math.max(summer, 1), 1), "x", `${fmt(winter)} vs ${fmt(summer)} kWh/mo`]];
+  document.getElementById("whReadouts").innerHTML = ro.map(([l, v, u, n]) => `<div class="ro"><span class="label">${l}</span><span class="v">${v}<small>${u}</small></span><span class="n">${n}</span></div>`).join("");
+  chart("cWhMonth", { type: "bar", data: { labels: ms.map(monthLbl), datasets: [bar("kWh", ms.map(m => +M[m][0].toFixed(1)), css("--s3"))] },
+    options: opts({ yfmt: v => fmt(v), tip: c => { const m = ms[c.dataIndex]; return [`${fmt(c.raw, 1)} kWh${m >= thisMonth ? " (month to date)" : ""}`, `${fmt(M[m][0] / M[m][1], 2)} kWh/day`, money(c.raw * rate, 2)]; } }) });
+  const T = teslaMonths().filter(r => r[0] < thisMonth).slice(-12), house = T.reduce((a, r) => a + r[1], 0);
+  document.getElementById("whStats").innerHTML = `<span>Share of house use <b>${fmt(W.kwh12 / house * 100, 1)}%</b></span><span>A standard electric tank would use roughly <b>3x</b> this; heat pump mode is doing its job</span>`;
+  const H = Array.from({ length: 24 }, (_, h) => `${(h % 12) || 12}${h < 12 ? "a" : "p"}`);
+  chart("cWhHour", { type: "bar", data: { labels: H, datasets: [bar("kWh", W.profile, css("--s3"))] },
+    options: (() => { const o = opts({ yfmt: v => fmt(v, 2), tip: c => `${fmt(c.raw, 3)} kWh avg` }); o.plugins.peak = { on: true }; return o; })(), plugins: [peakShade] });
+  document.getElementById("whHourStats").innerHTML = `<span>On-peak 5–9 pm share <b>${fmt(peakSh * 100)}%</b></span><span>Peak heating is late evening, after the 9 pm off-peak start</span>`;
+}
+
+// ---------- Load calculator ----------
+// [name, watts, hours/day, months/yr, basis]
+const LOAD_DEFAULTS = CFG.loads.map(r => r[4] === "measured:water" ? [r[0], r[1], +(WATER.kwh12 / WATER.days12 * 1000 / r[1]).toFixed(2), 12, `measured: ${Math.round(WATER.kwh12)} kWh last 12 mo (EcoNet)`] : r);
+function getLoads() { try { return JSON.parse(localStorage.getItem("dc_loads_v3")) || LOAD_DEFAULTS.map(r => [...r]); } catch { return LOAD_DEFAULTS.map(r => [...r]); } }
+function saveLoads(L) { try { localStorage.setItem("dc_loads_v3", JSON.stringify(L)); } catch {} }
+let LOADS = getLoads();
+const kwhMo = r => r[1] * r[2] * 30.4 * (r[3] / 12) / 1000;
+function renderLoads(rebuildTable = true) {
+  const rate = offPeakRate(), T = teslaMonths().filter(r => r[0] < thisMonth).slice(-12), measured = T.reduce((a, r) => a + r[1], 0) / T.length, car = T.reduce((a, r) => a + r[2], 0) / T.length;
+  if (rebuildTable) {
+    document.getElementById("loadTable").innerHTML = `<tr><th>Appliance</th><th class="n">Watts</th><th class="n">Hrs/day</th><th class="n">Mo/yr</th><th class="n">kWh/mo</th><th class="n">$/mo</th></tr>` +
+      LOADS.map((r, i) => `<tr${/^measured/.test(r[4] || "") ? ' class="meas"' : ""}><td><input class="ln" data-i="${i}" data-k="0" value="${r[0].replace(/"/g, "&quot;")}" aria-label="Appliance name"><span class="tag">${r[4] || ""}</span></td>` +
+        [1, 2, 3].map(k => `<td class="n"><input type="number" class="lv" data-i="${i}" data-k="${k}" value="${r[k]}" step="any" min="0" aria-label="${["", "Watts", "Hours per day", "Months per year"][k]}"></td>`).join("") +
+        `<td class="n" id="lk${i}"></td><td class="n" id="lc${i}"></td></tr>`).join("") +
+      `<tr class="sum"><td>Estimated house total</td><td></td><td></td><td></td><td class="n" id="lkT"></td><td class="n" id="lcT"></td></tr>`;
+    document.querySelectorAll("#loadTable input").forEach(el => el.addEventListener("input", e => {
+      const i = +e.target.dataset.i, k = +e.target.dataset.k; LOADS[i][k] = k === 0 ? e.target.value : +e.target.value || 0; saveLoads(LOADS); renderLoads(false); }));
+  }
+  let tot = 0; LOADS.forEach((r, i) => { const k = kwhMo(r); tot += k; document.getElementById("lk" + i).textContent = fmt(k); document.getElementById("lc" + i).textContent = money(k * rate, 2); });
+  document.getElementById("lkT").textContent = fmt(tot); document.getElementById("lcT").textContent = money(tot * rate, 2);
+  const gap = measured - tot;
+  document.getElementById("loadSide").innerHTML = [["Measured house use", `${fmt(measured)} kWh/mo`], ["Estimated total", `${fmt(tot)} kWh/mo`],
+    [gap >= 0 ? "Not yet accounted for" : "Estimates exceed measured by", `${fmt(Math.abs(gap))} kWh/mo`], ["Car charging (measured, separate)", `${fmt(car)} kWh/mo`],
+    ["Rate used", `$${rate.toFixed(3)}/kWh off-peak`], ["Measured span", `${monthLbl(T[0][0])} to ${monthLbl(T.at(-1)[0])}`]].map(([a, v]) => `<div><span>${a}</span><span>${v}</span></div>`).join("") +
+    `<p class="note" style="margin:0">Tune the estimates until the gap is near zero; that's when the breakdown is trustworthy.</p>`;
+  const rows = LOADS.map((r, i) => [r[0].replace(/\s*\(.*\)/, ""), kwhMo(r), /^measured/.test(r[4] || "")]).sort((a, b) => b[1] - a[1]);
+  chart("cLoads", { type: "bar", data: { labels: [...rows.map(r => r[0]), "Car charging (measured)"], datasets: [bar("kWh/mo", [...rows.map(r => +r[1].toFixed(1)), +car.toFixed(1)], [...rows.map(r => r[2] ? css("--muted") : css("--s1")), css("--s5")])] },
+    options: (() => { const o = opts({ yfmt: v => fmt(v), tip: c => `${fmt(c.raw)} kWh/mo · ${money(c.raw * rate, 2)}/mo` }); o.indexAxis = "y"; o.scales.x.grid = { color: css("--line") }; o.scales.y.grid = { display: false }; o.scales.x.ticks.callback = v => fmt(v); o.scales.y.ticks.callback = function (v) { return this.getLabelForValue(v); }; return o; })() });
+}
+document.getElementById("addLoad").addEventListener("click", () => { LOADS.push(["New appliance", 100, 1, 12, "your entry"]); saveLoads(LOADS); renderLoads(); });
+document.getElementById("resetLoads").addEventListener("click", () => { LOADS = LOAD_DEFAULTS.map(r => [...r]); saveLoads(LOADS); renderLoads(); });
+
+// NEC 220.82: [label, VA, basis]
+const NEC_DEFAULTS = CFG.nec;
+function getNec() { try { return JSON.parse(localStorage.getItem("dc_nec_v2")) || structuredClone(NEC_DEFAULTS); } catch { return structuredClone(NEC_DEFAULTS); } }
+let NEC = getNec();
+const PEAK = CFG.peak;
+function renderNec(rebuild = true) {
+  const general = NEC.sqft * 3 + 3000 + 1500, fixed = NEC.fixed.reduce((a, r) => a + (+r[1] || 0), 0), other = general + fixed;
+  const demand = Math.min(other, 10000) + Math.max(0, other - 10000) * 0.4, hvac = Math.max(+NEC.ac || 0, +NEC.heat || 0), total = demand + hvac, amps = total / 240;
+  if (rebuild) {
+    document.getElementById("necTable").innerHTML = `<tr><th>Load</th><th class="n">VA</th></tr>` +
+      `<tr><td>Square footage<span class="tag">3 VA per sq ft for lighting and outlets</span></td><td class="n"><input type="number" class="lv" id="necSq" value="${NEC.sqft}" aria-label="Square footage"></td></tr>` +
+      `<tr class="meas"><td>Small appliance (2 × 1,500) + laundry (1,500)</td><td class="n">4,500</td></tr>` +
+      NEC.fixed.map((r, i) => `<tr><td>${r[0]}<span class="tag">${r[2]}</span></td><td class="n"><input type="number" class="lv" data-i="${i}" value="${r[1]}" aria-label="${r[0]} VA"></td></tr>`).join("") +
+      `<tr><td>Central AC<span class="tag">assumed ~3 ton; check condenser nameplate</span></td><td class="n"><input type="number" class="lv" id="necAc" value="${NEC.ac}" aria-label="AC VA"></td></tr>` +
+      `<tr><td>Heating (electric part)<span class="tag">gas furnace, blower only</span></td><td class="n"><input type="number" class="lv" id="necHeat" value="${NEC.heat}" aria-label="Heat VA"></td></tr>`;
+    document.querySelectorAll("#necTable input").forEach(el => el.addEventListener("input", e => {
+      const v = +e.target.value || 0; if (e.target.id === "necSq") NEC.sqft = v; else if (e.target.id === "necAc") NEC.ac = v; else if (e.target.id === "necHeat") NEC.heat = v; else NEC.fixed[+e.target.dataset.i][1] = v;
+      try { localStorage.setItem("dc_nec_v2", JSON.stringify(NEC)); } catch {} renderNec(false); }));
+  }
+  const pct = amps / 200 * 100, state = pct > 100 ? "over" : pct > 80 ? "tight" : "ok";
+  document.getElementById("necSide").innerHTML = [["General + fixed loads", `${fmt(other)} VA`], ["First 10 kVA at 100%, rest at 40%", `${fmt(demand)} VA`], ["Plus larger of AC or heat", `${fmt(hvac)} VA`],
+    ["Calculated service load", `<b>${fmt(amps)} A</b> of 200 A (${fmt(pct)}%)`], ["Measured peak (5-min avg)", `<b>${fmt(PEAK.kw / 0.24)} A</b> · ${fmt(PEAK.kw, 1)} kW, ${PEAK.when}`],
+    ["Measured 99th percentile", `${fmt(PEAK.p99 / 0.24)} A`], ["Headroom on paper", `${fmt(200 - amps)} A`]].map(([a, v]) => `<div><span>${a}</span><span>${v}</span></div>`).join("") +
+    `<p class="note" style="margin:0">${state === "ok" ? "Within the 80% planning margin." : state === "tight" ? "Above the 80% planning margin. Adding a large load (240 V tub, ADU, second charger) likely needs load management or a service upgrade." : "Over capacity on paper. Check nameplates; an EV charger load-share or smart panel may resolve it."} Real peaks run far below the calculated load because heavy appliances rarely run at once.</p>`;
+}
+const SOLAR_PMT = CFG.solar_payment, CAR_PMT = CFG.car_payment;
+function renderAllIn() {
+  const L = BILLS.slice(-12), avg = L.reduce((a, b) => a + b.amt, 0) / 12, tot = avg + SOLAR_PMT + CAR_PMT;
+  const T = teslaMonths().filter(r => r[0] < new Date().toISOString().slice(0, 7)).slice(-12), carKwh = T.reduce((a, r) => a + r[2], 0), carCost = carKwh * offPeakRate() / 12;
+  const rows = [["Electric bills (Pacific Power)", avg, `incl. about ${money(carCost)}/mo of car charging`], ["Solar system payment", SOLAR_PMT, ""], [CFG.car_label, CAR_PMT, `since ${monthLbl(CFG.car_since.slice(0, 7))}`]];
+  document.getElementById("allin").innerHTML = `<tr><th>Item</th><th class="n">Per month</th><th class="n">Per year</th><th class="n">Share</th></tr>` +
+    rows.map(([l, v, n]) => `<tr><td>${l}${n ? `<span class="tag">${n}</span>` : ""}</td><td class="n">${money(v, 2)}</td><td class="n">${money(v * 12)}</td><td class="n">${fmt(v / tot * 100)}%</td></tr>`).join("") +
+    `<tr class="sum"><td>Total</td><td class="n">${money(tot, 2)}</td><td class="n">${money(tot * 12)}</td><td class="n">100%</td></tr>`;
+  document.getElementById("allinNote").textContent = `Split by use: the car costs about ${money(CAR_PMT + carCost)}/mo (payment plus home charging) and the house about ${money(avg - carCost + SOLAR_PMT)}/mo (bills minus charging, plus the solar payment).`;
+}
+function renderAll() { Chart.register(eventLines); renderAllIn(); renderSources(); renderReadouts(); renderFindings(); renderBills(); renderMeter(); renderRates(); renderYoY(); renderExplorer(); renderTesla(); renderEma(); renderCar(); renderWater(); renderLoads(); renderNec(); }
+renderAll();
+matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", renderAll);
+new MutationObserver(renderAll).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+})();
+</script>
