@@ -10,6 +10,8 @@ energy_data/
 data/
 dashboard/config.json
 *.pdf
+bills/
+.config_built.json
 *.csv
 dashboard_*.json
 energy-dashboard.html

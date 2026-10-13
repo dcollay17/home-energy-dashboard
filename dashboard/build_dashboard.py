@@ -15,6 +15,10 @@ if not os.path.exists(cfg_path):
 t = open(os.path.join(HERE, "dash_template.html")).read()
 files = {"__CONFIG__": cfg_path, "__BILLS__": "dashboard_bills.json", "__ITEMS__": "dashboard_line_items.json", "__API__": "dashboard_tesla.json",
          "__TESLA__": "dashboard_tesla_base.json", "__CAR__": "dashboard_car.json", "__WATER__": "dashboard_water_heater.json", "__EMA__": "dashboard_ema.json"}
+import datetime as _dt
+cfg = json.load(open(cfg_path)); cfg["built"] = _dt.datetime.now().strftime("%b %d, %Y %I:%M %p")
+built_cfg = os.path.abspath(os.path.join(data, ".config_built.json")); json.dump(cfg, open(built_cfg, "w"), ensure_ascii=False)
+files["__CONFIG__"] = built_cfg
 for k, f in files.items():
     p = f if os.path.isabs(f) else os.path.join(data, f)
     t = t.replace(k, open(p).read().strip())

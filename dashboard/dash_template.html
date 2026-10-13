@@ -1,4 +1,4 @@
-<title>Home Energy</title>
+<title>DC – Home Energy</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
@@ -207,13 +207,13 @@ footer code { font-family: var(--font-data); font-size: 0.78rem; }
       <div class="legend"><span><i style="background:var(--s4)"></i>Solar made</span><span><i style="background:var(--ink)"></i>House use</span><span><i style="background:var(--s1)"></i>From grid</span></div>
     </div>
     <div class="panel">
-      <div class="chart-head"><div><h2>House use, year over year</h2><p>Home use excluding car charging, kWh per month (Tesla app export). The hot tub arrived in April 2026.</p></div></div>
+      <div class="chart-head"><div><h2>House use, year over year</h2><p>Home use excluding car charging, kWh per month (Tesla app export, then Wall Connector data for newer months). The hot tub arrived in April 2026.</p></div></div>
       <div class="canvas-box"><canvas id="cHouseYoY" aria-label="House use 2025 vs 2026"></canvas></div>
       <div class="legend"><span><i style="background:var(--s2)"></i>2025</span><span><i style="background:var(--s3)"></i>2026</span></div>
       <div class="stats" id="tubStats"></div>
     </div>
     <div class="panel">
-      <div class="chart-head"><div><h2>Car charging at home</h2><p>kWh per month (Tesla app export). The car is set not to charge during on-peak 5–9 pm, so cost uses your off-peak rate.</p></div></div>
+      <div class="chart-head"><div><h2>Car charging at home</h2><p>kWh per month: Tesla app export through Sep 2026, Wall Connector sessions after that (within about 2% of the app over Jun to Sep 2026, though single months can differ). The car is set not to charge during on-peak 5–9 pm, so cost uses your off-peak rate.</p></div></div>
       <div class="canvas-box"><canvas id="cCar" aria-label="Car charging by month"></canvas></div>
       <div class="stats" id="carStats"></div>
     </div>
@@ -301,8 +301,8 @@ footer code { font-family: var(--font-data); font-size: 0.78rem; }
   </section>
 
   <footer>
-    <span>Bill data comes from the 33 PDFs in <code>Downloads/Pacific Power Bills</code>, where the full line items and meter reads are also saved as CSV. Every bill's line items add up to its total.</span>
-    <span>Tesla data comes from the official Fleet API (5-minute history since Apr 22, 2025); car charging comes from the Tesla app export. To refresh, double-click <code>Run Tesla API Export</code> in Downloads, then ask Claude to update the dashboard. Car charging cost assumes overnight off-peak charging.</span>
+    <span>Bill data comes from the <span id="nBills"></span> PDFs in <code>Downloads/Pacific Power Bills</code>, where the full line items and meter reads are also saved as CSV. Every bill's line items add up to its total.</span>
+    <span>Tesla data comes from the official Fleet API (5-minute history since Apr 22, 2025); home car charging comes from the Tesla app export, then the Wall Connector. To refresh everything, double-click <code>Run Everything</code> in Downloads (it also runs on the 1st of each month); drop new bill PDFs into the bills folder first. Last refresh: <span id="lastRefresh"></span>. Car charging cost assumes overnight off-peak charging.</span>
   </footer>
 </div>
 
@@ -311,6 +311,7 @@ footer code { font-family: var(--font-data); font-size: 0.78rem; }
 const CFG = __CONFIG__;
 document.getElementById("title").textContent = CFG.title; document.getElementById("subhead").innerHTML = CFG.subtitle;
 const BILLS = __BILLS__;
+document.getElementById("nBills").textContent = BILLS.length; document.getElementById("lastRefresh").textContent = CFG.built || "unknown";
 const ITEMS = __ITEMS__;
 
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
