@@ -27,7 +27,7 @@ AUTHORIZE = "https://auth.tesla.com/oauth2/v3/authorize"
 BASE = "https://fleet-api.prd.na.vn.cloud.tesla.com"
 DOMAIN = None  # read from credentials.txt (DOMAIN=yourname.github.io)
 REDIRECT = "http://localhost:8765/callback"
-SCOPES = "openid offline_access energy_device_data vehicle_device_data vehicle_charging_cmds"
+SCOPES = "openid offline_access energy_device_data vehicle_device_data"  # read-only: no command scopes
 TZ = "America/Los_Angeles"
 START = dt.date(2025, 3, 1)  # Powerwall online March 2025
 PAUSE = 0.4
