@@ -22,7 +22,7 @@ def main():
     info = json.load(open(os.path.join(T.RAW, "site_info.json"))) if os.path.exists(os.path.join(T.RAW, "site_info.json")) else {}
     first = dt.date.fromisoformat((info.get("installation_date") or "2025-04-01")[:10]).replace(day=1)
     today = dt.date.today(); this_m = today.replace(day=1); prev_m = (this_m - dt.timedelta(days=1)).replace(day=1)
-    m, n_ok, n_sess = first, 0, 0
+    m, n_ok, n_sess, missed = first, 0, 0, 0
     while m <= this_m:
         nxt = (m.replace(day=28) + dt.timedelta(days=4)).replace(day=1)
         p = os.path.join(OUT, f"{m:%Y-%m}.json")
@@ -31,12 +31,14 @@ def main():
             e = dt.datetime.combine(min(nxt - dt.timedelta(days=1), today), dt.time(23, 59, 59)).astimezone().isoformat()
             r = T.get(tok, f"/api/1/energy_sites/{sid}/telemetry_history", kind="charge", start_date=s, end_date=e, time_zone=T.TZ)
             if r is None:
-                T.log(f"  {m:%Y-%m}: no response"); m = nxt; continue
+                T.log(f"  {m:%Y-%m}: no response"); missed += 1; m = nxt; continue
             json.dump(r, open(p, "w")); time.sleep(T.PAUSE)
         d = json.load(open(p)); hist = (d or {}).get("charge_history") or []
         n_ok += 1; n_sess += len(hist)
         m = nxt
     T.log(f"Home charging: {n_ok} months, {n_sess} sessions. Done.")
+    if missed:
+        sys.exit(1)
 
 
 if __name__ == "__main__":

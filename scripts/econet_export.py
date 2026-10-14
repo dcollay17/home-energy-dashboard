@@ -30,6 +30,7 @@ async def main():
     eq = await api.get_equipment_by_type([EquipmentType.WATER_HEATER])
     whs = eq.get(EquipmentType.WATER_HEATER, [])
     print(f"Water heaters: {len(whs)}", flush=True)
+    any_fail = not whs
     for wh in whs:
         snap = {"name": wh.device_name, "set_point": wh.set_point, "mode": str(wh.mode), "running": wh.running, "running_state": wh.running_state,
                 "hot_water_pct": wh.tank_hot_water_availability, "tank_health": wh.tank_health, "compressor_health": wh.compressor_health,
@@ -48,13 +49,18 @@ async def main():
                 except Exception as ex:
                     fails += 1; print(f"   {day}: {ex}", flush=True)
                     if fails >= 5:
-                        print("   stopping after repeated errors", flush=True); break
+                        print("   stopping after repeated errors", flush=True); any_fail = True; break
                 await asyncio.sleep(1.0)
                 if n and n % 30 == 0:
                     print(f"   {n} days (through {day})", flush=True)
             day += dt.timedelta(days=1)
         print(f"   saved {n} new days", flush=True)
-    api.unsubscribe() if hasattr(api, "unsubscribe") else None
+    try:
+        api.unsubscribe()
+    except Exception:
+        pass  # pyeconet raises on teardown when MQTT never connected; data is already saved
+    if any_fail:
+        sys.exit(1)
     print("Done.", flush=True)
 
 asyncio.run(main())

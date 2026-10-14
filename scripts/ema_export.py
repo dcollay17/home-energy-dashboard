@@ -11,6 +11,7 @@ OUT = os.path.join(HERE, "energy_data", "ema")
 BASE = "https://api.apsystemsema.com:9282"
 BUDGET = int(os.environ.get("EMA_BUDGET", "400"))  # max calls this run
 calls = 0
+errors = 0
 
 
 def creds():
@@ -45,11 +46,23 @@ def get(c, path, **params):
 
 
 def save(name, d):
-    json.dump(d, open(os.path.join(OUT, name), "w"))
+    p = os.path.join(OUT, name)
+    if not ok(d):  # keep a previous good copy; park the error body beside it for debugging
+        json.dump(d, open(p + ".error", "w")); global errors; errors += 1
+        return
+    json.dump(d, open(p, "w"))
+
+
+def ok(d):
+    return isinstance(d, dict) and str(d.get("code")) == "0" and d.get("data") is not None
 
 
 def have(name):
-    return os.path.exists(os.path.join(OUT, name))
+    p = os.path.join(OUT, name)
+    try:
+        return ok(json.load(open(p)))
+    except (OSError, ValueError):
+        return False
 
 
 def main():
@@ -86,6 +99,9 @@ def main():
                     print("Stopped at call budget; rerun later to continue.", flush=True); print(f"Calls used: {calls}"); return
         m = (m.replace(day=28) + dt.timedelta(days=4)).replace(day=1)
     print(f"Calls used this run: {calls}", flush=True)
+    if errors:
+        print(f"{errors} request(s) returned an error; they will be retried next run.", flush=True)
+        sys.exit(1)
     print("Done.", flush=True)
 
 

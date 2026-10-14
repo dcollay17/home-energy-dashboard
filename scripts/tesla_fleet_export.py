@@ -68,9 +68,10 @@ def curl(method, url, form=None, token=None, body=None):
 
 def save_tokens(t):
     t["saved_at"] = time.time()
-    with open(TOKENS, "w") as f:
+    fd = os.open(TOKENS, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
         json.dump(t, f)
-    os.chmod(TOKENS, 0o600)
+    os.chmod(TOKENS, 0o600)  # also tighten a file created by an older version
 
 
 def partner_setup(c):
@@ -201,6 +202,7 @@ def main():
     todo = [first + dt.timedelta(days=i) for i in range((last - first).days + 1)]
     todo = [d for d in todo if not os.path.exists(os.path.join(RAW, f"{d}_power.json"))]
     log(f"Site {info.get('site_name', sid)} | {len(todo)} days to fetch")
+    skipped = 0
     for n, d in enumerate(todo, 1):
         if n % 50 == 0:
             tok = access_token(c)
@@ -211,12 +213,15 @@ def main():
         pw = get(tok, f"/api/1/energy_sites/{sid}/calendar_history", kind="power", period="day", start_date=s, end_date=e, time_zone=TZ)
         time.sleep(PAUSE)
         if en is None or pw is None:
-            log(f"  skipped {d}, will retry next run"); continue
+            log(f"  skipped {d}, will retry next run"); skipped += 1; continue
         json.dump(en, open(os.path.join(RAW, f"{d}_energy.json"), "w"))
         json.dump(pw, open(os.path.join(RAW, f"{d}_power.json"), "w"))
         if n % 25 == 0 or n == len(todo):
             log(f"  {n}/{len(todo)} days (through {d})")
     rebuild_csvs()
+    if skipped:
+        log(f"Finished with {skipped} day(s) skipped; rerun to fill them in.")
+        sys.exit(1)
     open(os.path.join(OUT, "DONE.txt"), "w").write(dt.datetime.now().isoformat())
     log("Done.")
 

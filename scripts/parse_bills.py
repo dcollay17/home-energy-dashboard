@@ -141,12 +141,12 @@ def main():
     src = sys.argv[1] if len(sys.argv) > 1 else "."
     out = sys.argv[2] if len(sys.argv) > 2 else src
     pw = password()
-    bills, items, reads, bad = [], {}, [], []
+    bills, items, reads, bad, failed = [], {}, [], [], []
     for p in sorted(glob.glob(os.path.join(src, "*.pdf"))):
         try:
             b, it, mr, ok, s, tot = parse(pdf_text(p, pw))
         except Exception as e:
-            print(f"  skip {os.path.basename(p)}: {e}"); continue
+            print(f"  skip {os.path.basename(p)}: {e}"); failed.append(os.path.basename(p)); continue
         if not b["d"] or b["d"] in items:
             continue  # duplicate download of the same bill
         bills.append(b); items[b["d"]] = it
@@ -154,6 +154,14 @@ def main():
         if not ok:
             bad.append(f"{b['d']}: items {s} vs total {tot} vs amount {b['amt']}")
     bills.sort(key=lambda b: b["d"])
+    if not bills:
+        print(f"ERROR: no bills parsed from {src} (layout change or wrong PDF_PASSWORD?). Existing files left untouched.")
+        sys.exit(1)
+    prev_p = os.path.join(out, "dashboard_bills.json")
+    prev_n = len(json.load(open(prev_p))) if os.path.exists(prev_p) else 0
+    if len(bills) < prev_n:
+        print(f"ERROR: parsed {len(bills)} bills but {prev_n} were parsed before. Existing files left untouched.")
+        sys.exit(1)
     json.dump(bills, open(os.path.join(out, "dashboard_bills.json"), "w"))
     json.dump(dict(sorted(items.items())), open(os.path.join(out, "dashboard_line_items.json"), "w"))
     with open(os.path.join(out, "pacific_power_bills.csv"), "w", newline="") as f:
@@ -170,6 +178,8 @@ def main():
     print(f"Parsed {len(bills)} bills ({bills[0]['d']} to {bills[-1]['d']}); {len(bills) - len(bad)} reconcile to the penny.")
     for x in bad:
         print("  CHECK", x)
+    if bad or failed:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
